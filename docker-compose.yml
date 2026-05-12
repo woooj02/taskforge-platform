@@ -1,0 +1,198 @@
+version: '3.9'
+
+services:
+  # PostgreSQL - Event Store Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: taskforge-postgres
+    environment:
+      POSTGRES_DB: taskforge
+      POSTGRES_USER: taskforge
+      POSTGRES_PASSWORD: taskforge_secret
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U taskforge"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - taskforge-network
+
+  # Zookeeper (required for Kafka)
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.6.0
+    container_name: taskforge-zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - "2181:2181"
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "2181"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - taskforge-network
+
+  # Kafka - Event Bus
+  kafka:
+    image: confluentinc/cp-kafka:7.6.0
+    container_name: taskforge-kafka
+    depends_on:
+      zookeeper:
+        condition: service_healthy
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_CREATE_TOPICS: "task.events:3:1,workflow.events:3:1,notifications:3:1"
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+    ports:
+      - "9092:9092"
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "9092"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - taskforge-network
+
+  # Redis - Cache
+  redis:
+    image: redis:7-alpine
+    container_name: taskforge-redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - taskforge-network
+
+  # Task Service
+  task-service:
+    build:
+      context: ./services/task_service
+      dockerfile: Dockerfile
+    container_name: taskforge-task-service
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: "postgresql+asyncpg://taskforge:taskforge_secret@postgres:5432/taskforge"
+      KAFKA_BOOTSTRAP_SERVERS: "kafka:9092"
+      TASK_SERVICE_PORT: "50051"
+      ENVIRONMENT: "development"
+      OTEL_EXPORTER_OTLP_ENDPOINT: "http://jaeger:4317"
+    ports:
+      - "50051:50051"
+    healthcheck:
+      test: ["CMD", "grpc_health_probe", "-addr=:50051"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
+    networks:
+      - taskforge-network
+
+  # Workflow Service
+  workflow-service:
+    build:
+      context: ./services/workflow_service
+      dockerfile: Dockerfile
+    container_name: taskforge-workflow-service
+    depends_on:
+      kafka:
+        condition: service_healthy
+      task-service:
+        condition: service_healthy
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: "kafka:9092"
+      TASK_SERVICE_HOST: "task-service"
+      TASK_SERVICE_PORT: "50051"
+      ENVIRONMENT: "development"
+    ports:
+      - "50052:50052"
+    restart: unless-stopped
+    networks:
+      - taskforge-network
+
+  # API Gateway
+  api-gateway:
+    build:
+      context: ./services/api_gateway
+      dockerfile: Dockerfile
+    container_name: taskforge-api-gateway
+    depends_on:
+      - task-service
+      - workflow-service
+    environment:
+      TASK_SERVICE_HOST: "task-service"
+      TASK_SERVICE_PORT: "50051"
+      WORKFLOW_SERVICE_HOST: "workflow-service"
+      WORKFLOW_SERVICE_PORT: "50052"
+      JWT_SECRET_KEY: "dev_secret_key_change_in_production"
+    ports:
+      - "8080:8080"
+    restart: unless-stopped
+    networks:
+      - taskforge-network
+
+  # Jaeger - Distributed Tracing
+  jaeger:
+    image: jaegertracing/all-in-one:1.54
+    container_name: taskforge-jaeger
+    environment:
+      COLLECTOR_OTLP_ENABLED: "true"
+    ports:
+      - "16686:16686"  # Jaeger UI
+      - "4317:4317"    # OTLP gRPC
+      - "4318:4318"    # OTLP HTTP
+    networks:
+      - taskforge-network
+
+  # Prometheus - Metrics
+  prometheus:
+    image: prom/prometheus:v2.50.0
+    container_name: taskforge-prometheus
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    ports:
+      - "9090:9090"
+    networks:
+      - taskforge-network
+
+  # Grafana - Dashboards
+  grafana:
+    image: grafana/grafana:10.4.0
+    container_name: taskforge-grafana
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: admin
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+    networks:
+      - taskforge-network
+
+volumes:
+  postgres_data:
+  prometheus_data:
+  grafana_data:
+
+networks:
+  taskforge-network:
+    driver: bridge

@@ -1,0 +1,43 @@
+# Python
+__pycache__/
+*.py[cod]
+*.so
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# Virtual envs
+venv/
+env/
+.venv
+
+# Testing
+.pytest_cache/
+.tox/
+.coverage
+coverage.xml
+htmlcov/
+
+# Environments / secrets
+.env
+.env.*
+!.env.example
+
+# Generated proto code (keep .proto sources, regenerate _pb2.py at build)
+src/**/*_pb2.py
+src/**/*_pb2_grpc.py
+
+# Logs
+*.log
+logs/
+
+# IDE / OS
+.vscode/
+.idea/
+*.swp
+.DS_Store
+
+# Kubernetes secrets / local clusters
+**/secret.yaml
+.kube/

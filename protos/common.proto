@@ -1,0 +1,65 @@
+syntax = "proto3";
+
+package taskforge.common;
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/wrappers.proto";
+
+// Task priority levels
+enum TaskPriority {
+  TASK_PRIORITY_UNSPECIFIED = 0;
+  TASK_PRIORITY_LOW = 1;
+  TASK_PRIORITY_MEDIUM = 2;
+  TASK_PRIORITY_HIGH = 3;
+  TASK_PRIORITY_CRITICAL = 4;
+}
+
+// Task status enum
+enum TaskStatus {
+  TASK_STATUS_UNSPECIFIED = 0;
+  TASK_STATUS_BACKLOG = 1;
+  TASK_STATUS_TODO = 2;
+  TASK_STATUS_IN_PROGRESS = 3;
+  TASK_STATUS_REVIEW = 4;
+  TASK_STATUS_DONE = 5;
+  TASK_STATUS_ARCHIVED = 6;
+}
+
+// Money value object
+message Money {
+  int64 amount_cents = 1;
+  string currency = 2;
+}
+
+// Address value object
+message Address {
+  string street = 1;
+  string city = 2;
+  string state = 3;
+  string postal_code = 4;
+  string country = 5;
+}
+
+// Pagination request
+message PaginationRequest {
+  int32 page = 1;
+  int32 page_size = 2;
+  string sort_by = 3;
+  bool sort_descending = 4;
+}
+
+// Pagination response
+message PaginationResponse {
+  int32 total_items = 1;
+  int32 total_pages = 2;
+  int32 current_page = 3;
+  bool has_next = 4;
+  bool has_previous = 5;
+}
+
+// Error response
+message ErrorResponse {
+  string code = 1;
+  string message = 2;
+  map<string, string> details = 3;
+}

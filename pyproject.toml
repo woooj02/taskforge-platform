@@ -1,0 +1,54 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "taskforge-platform"
+version = "1.0.0"
+description = "Distributed Task Orchestration Platform with Event Sourcing & CQRS"
+requires-python = ">=3.10"
+authors = [{name = "Aryan Neopane"}]
+license = {text = "MIT"}
+
+dependencies = [
+    "grpcio>=1.60.0",
+    "grpcio-tools>=1.60.0",
+    "protobuf>=4.25.0",
+    "aiokafka>=0.8.0",
+    "asyncpg>=0.29.0",
+    "sqlalchemy[asyncio]>=2.0.25",
+    "pydantic>=2.6.0",
+    "loguru>=0.7.2",
+    "opentelemetry-api>=1.22.0",
+    "opentelemetry-sdk>=1.22.0",
+    "opentelemetry-exporter-otlp>=1.22.0",
+    "pyjwt>=2.8.0",
+    "python-dotenv>=1.0.1",
+    "click>=8.1.0",
+    "tenacity>=8.2.3",
+    "redis>=5.0.1",
+    "structlog>=24.1.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.23.3",
+    "pytest-cov>=4.1.0",
+    "black>=24.1.1",
+    "mypy>=1.8.0",
+    "isort>=5.13.2",
+    "pre-commit>=3.6.0",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["services*", "libs*"]
+
+[tool.black]
+line-length = 100
+target-version = ['py310']
+
+[tool.mypy]
+python_version = "3.10"
+strict = true

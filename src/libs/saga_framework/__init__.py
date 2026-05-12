@@ -1,0 +1,1 @@
+"""Saga Framework - Distributed transaction management."""

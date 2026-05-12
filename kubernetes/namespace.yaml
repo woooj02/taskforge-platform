@@ -1,0 +1,28 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: taskforge
+  labels:
+    app: taskforge
+    environment: production
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: taskforge-config
+  namespace: taskforge
+data:
+  ENVIRONMENT: "production"
+  KAFKA_BOOTSTRAP_SERVERS: "kafka-service.taskforge.svc.cluster.local:9092"
+  TASK_SERVICE_PORT: "50051"
+  WORKFLOW_SERVICE_PORT: "50052"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: taskforge-secrets
+  namespace: taskforge
+type: Opaque
+stringData:
+  DATABASE_URL: "postgresql+asyncpg://taskforge:prod_secret@postgres-service:5432/taskforge"
+  JWT_SECRET_KEY: "change_this_in_production_use_vault"

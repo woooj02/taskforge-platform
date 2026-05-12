@@ -1,0 +1,126 @@
+syntax = "proto3";
+
+package taskforge.workflow;
+
+import "google/protobuf/timestamp.proto";
+import "common.proto";
+import "task_service.proto";
+
+option go_package = "github.com/taskforge/protos/workflow";
+
+// Workflow definition
+message WorkflowDefinition {
+  string id = 1;
+  string name = 2;
+  string description = 3;
+  repeated WorkflowStep steps = 4;
+  int32 version = 5;
+  google.protobuf.Timestamp created_at = 6;
+}
+
+message WorkflowStep {
+  string step_id = 1;
+  string name = 2;
+  string description = 3;
+  repeated string required_roles = 4;
+  repeated StepAction actions = 5;
+  repeated StepCondition conditions = 6;
+  int32 order = 7;
+}
+
+message StepAction {
+  string action_id = 1;
+  string name = 2;
+  string service_name = 3;
+  string rpc_method = 4;
+  bytes payload_template = 5;
+}
+
+message StepCondition {
+  string field = 1;
+  string operator = 2;
+  string value = 3;
+}
+
+// Workflow instance
+message WorkflowInstance {
+  string id = 1;
+  string workflow_definition_id = 2;
+  string task_id = 3;
+  string current_step_id = 4;
+  WorkflowStatus status = 5;
+  google.protobuf.Timestamp started_at = 6;
+  google.protobuf.Timestamp completed_at = 7;
+  repeated StepExecution step_executions = 8;
+  int32 version = 9;
+}
+
+enum WorkflowStatus {
+  WORKFLOW_STATUS_UNSPECIFIED = 0;
+  WORKFLOW_STATUS_RUNNING = 1;
+  WORKFLOW_STATUS_COMPLETED = 2;
+  WORKFLOW_STATUS_FAILED = 3;
+  WORKFLOW_STATUS_CANCELLED = 4;
+  WORKFLOW_STATUS_COMPENSATING = 5;
+}
+
+message StepExecution {
+  string step_id = 1;
+  string action_id = 2;
+  StepExecutionStatus status = 3;
+  google.protobuf.Timestamp started_at = 4;
+  google.protobuf.Timestamp completed_at = 5;
+  string error_message = 6;
+  int32 retry_count = 7;
+}
+
+enum StepExecutionStatus {
+  STEP_EXECUTION_STATUS_UNSPECIFIED = 0;
+  STEP_EXECUTION_STATUS_PENDING = 1;
+  STEP_EXECUTION_STATUS_RUNNING = 2;
+  STEP_EXECUTION_STATUS_COMPLETED = 3;
+  STEP_EXECUTION_STATUS_FAILED = 4;
+  STEP_EXECUTION_STATUS_SKIPPED = 5;
+}
+
+// Commands
+message StartWorkflowCommand {
+  string workflow_definition_id = 1;
+  string task_id = 2;
+  map<string, string> initial_data = 3;
+}
+
+message AdvanceWorkflowCommand {
+  string workflow_instance_id = 1;
+  string step_id = 2;
+  string action_id = 3;
+  map<string, string> step_data = 4;
+}
+
+message CancelWorkflowCommand {
+  string workflow_instance_id = 1;
+  string reason = 2;
+}
+
+// Queries
+message GetWorkflowInstanceRequest {
+  string workflow_instance_id = 1;
+}
+
+message ListWorkflowDefinitionsRequest {
+  common.PaginationRequest pagination = 1;
+}
+
+message ListWorkflowDefinitionsResponse {
+  repeated WorkflowDefinition definitions = 1;
+  common.PaginationResponse pagination = 2;
+}
+
+// Workflow Service
+service WorkflowService {
+  rpc StartWorkflow(StartWorkflowCommand) returns (WorkflowInstance);
+  rpc AdvanceWorkflow(AdvanceWorkflowCommand) returns (WorkflowInstance);
+  rpc CancelWorkflow(CancelWorkflowCommand) returns (WorkflowInstance);
+  rpc GetWorkflowInstance(GetWorkflowInstanceRequest) returns (WorkflowInstance);
+  rpc ListWorkflowDefinitions(ListWorkflowDefinitionsRequest) returns (ListWorkflowDefinitionsResponse);
+}

@@ -1,0 +1,1 @@
+"""Task Service - Event-sourced task management microservice."""
